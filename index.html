@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heat Flow Calculator — ITC Coatings</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/heatflow/materials.js"></script>
+<style>
+/* ── Reset & Base ───────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#181b24;--bg3:#1f2330;--bg4:#272b38;
+  --border:#2e3346;--border2:#3a3f54;
+  --text:#e0e4f0;--text2:#a0a8c0;--text3:#6b7394;
+  --accent:#e86c2c;--accent2:#f59e0b;--accent-glow:rgba(232,108,44,.25);
+  --green:#22c55e;--red:#ef4444;--blue:#3b82f6;
+  --radius:8px;--radius-lg:12px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:'SF Mono','Fira Code','Cascadia Code',monospace;
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.app-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:40px;height:40px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#fff;letter-spacing:-1px}
+.logo-text{font-size:1.1rem;font-weight:700;color:var(--text)}
+.logo-sub{font-size:.75rem;color:var(--text3);font-weight:400}
+.header-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+.container{max-width:1400px;margin:0 auto;padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.container{grid-template-columns:1fr;padding:12px}}
+
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-weight:600;font-size:.95rem}
+.panel-header .icon{font-size:1.1rem}
+.panel-body{padding:18px}
+.full-width{grid-column:1/-1}
+
+/* ── Forms ──────────────────────────────────────────────────── */
+label{display:block;font-size:.8rem;color:var(--text2);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+input,select,textarea{width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:.9rem;font-family:var(--font);transition:border-color .2s}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+input[type=number]{font-family:var(--mono)}
+select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7394'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-row.three{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:500px){.form-row,.form-row.three{grid-template-columns:1fr}}
+.form-group{margin-bottom:12px}
+
+/* ── Buttons ────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:none;border-radius:var(--radius);font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s;font-family:var(--font)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#d45a1a;transform:translateY(-1px);box-shadow:0 4px 12px var(--accent-glow)}
+.btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--bg4);border-color:var(--border2)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:hover{background:#16a34a}
+.btn-sm{padding:6px 12px;font-size:.8rem}
+.btn-icon{padding:8px;min-width:36px;justify-content:center}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+
+/* ── Unit Toggle ────────────────────────────────────────────── */
+.unit-toggle{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:.8rem;font-weight:500}
+.unit-toggle-label{color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-size:.7rem}
+.toggle-switch{position:relative;width:48px;height:26px;cursor:pointer}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--bg4);border:1px solid var(--border);border-radius:13px;transition:all .3s}
+.toggle-slider::before{content:'';position:absolute;width:20px;height:20px;border-radius:50%;background:var(--accent);top:2px;left:2px;transition:transform .3s}
+.toggle-switch input:checked + .toggle-slider{background:var(--blue);border-color:var(--blue)}
+.toggle-switch input:checked + .toggle-slider::before{transform:translateX(22px);background:#fff}
+.unit-active{color:var(--text);font-weight:700}
+
+/* ── Layer Table ────────────────────────────────────────────── */
+.layer-table{width:100%;border-collapse:collapse}
+.layer-table th{text-align:left;font-size:.75rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:8px;border-bottom:1px solid var(--border)}
+.layer-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.layer-table tr:hover{background:var(--bg3)}
+.layer-num{width:30px;text-align:center;font-weight:700;color:var(--accent);font-family:var(--mono)}
+.layer-actions{width:80px;text-align:right}
+.layer-thickness{width:100px}
+.layer-thickness input{text-align:right}
+.layer-material{min-width:180px}
+.layer-info{font-size:.75rem;color:var(--text3);margin-top:2px}
+.temp-warn{color:var(--accent2);font-size:.75rem;font-weight:600}
+
+/* ── Material Search Dropdown ───────────────────────────────── */
+.mat-search-wrap{position:relative}
+.mat-search-input{width:100%;padding:8px 12px;padding-right:30px}
+.mat-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:0 0 var(--radius) var(--radius);max-height:250px;overflow-y:auto;z-index:200;display:none;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+@media(max-width:900px){.mat-dropdown{position:fixed;top:auto;bottom:0;left:0;right:0;max-height:60vh;border-radius:var(--radius-lg) var(--radius-lg) 0 0;z-index:300}}
+.mat-dropdown.open{display:block}
+.mat-option{padding:8px 12px;cursor:pointer;font-size:.85rem;border-bottom:1px solid var(--border)}
+.mat-option:hover,.mat-option.highlighted{background:var(--bg4)}
+.mat-option .mat-name{color:var(--text)}
+.mat-option .mat-meta{font-size:.7rem;color:var(--text3);margin-top:1px}
+.mat-option .mat-meta span{margin-right:10px}
+.mat-custom-badge{display:inline-block;background:var(--blue);color:#fff;font-size:.6rem;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle;font-weight:700;letter-spacing:.3px}
+
+/* ── Results ────────────────────────────────────────────────── */
+.results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.result-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center}
+.result-value{font-size:1.6rem;font-weight:800;font-family:var(--mono);color:var(--accent);margin:4px 0}
+.result-label{font-size:.75rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.result-unit{font-size:.8rem;color:var(--text2)}
+
+.interface-table{width:100%;border-collapse:collapse;margin-top:14px;font-family:var(--mono);font-size:.85rem}
+.interface-table th{text-align:left;font-size:.7rem;color:var(--text3);text-transform:uppercase;padding:6px 10px;border-bottom:1px solid var(--border)}
+.interface-table td{padding:6px 10px;border-bottom:1px solid var(--border)}
+.interface-table tr:hover{background:var(--bg3)}
+
+/* ── Chart ──────────────────────────────────────────────────── */
+.chart-wrap{position:relative;width:100%;height:350px}
+@media(max-width:600px){.chart-wrap{height:280px}}
+
+/* ── Save/Load Modal ────────────────────────────────────────── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);width:90%;max-width:500px;max-height:80vh;overflow-y:auto;padding:24px}
+.modal h3{margin-bottom:16px}
+.saved-list{list-style:none}
+.saved-list li{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;background:var(--bg3)}
+.saved-list li .name{font-weight:600;cursor:pointer}
+.saved-list li .name:hover{color:var(--accent)}
+.saved-list li .date{font-size:.75rem;color:var(--text3)}
+.no-saves{color:var(--text3);font-style:italic;text-align:center;padding:20px}
+
+/* ── Materials Editor Modal ─────────────────────────────────── */
+.me-overlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:300;overflow-y:auto}
+.me-overlay.open{display:block}
+.me-header{position:sticky;top:0;z-index:10;background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.me-header h2{font-size:1.1rem;white-space:nowrap}
+.me-search{flex:1;min-width:200px;max-width:400px}
+.me-body{max-width:1200px;margin:0 auto;padding:16px}
+.me-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.me-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.me-table th{position:sticky;top:0;background:var(--bg2);text-align:left;font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:10px 8px;border-bottom:2px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap}
+.me-table th:hover{color:var(--accent)}
+.me-table th .sort-arrow{margin-left:4px;font-size:.6rem}
+.me-table td{padding:8px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.me-table tr{cursor:pointer}
+.me-table tr:hover{background:var(--bg3)}
+.me-table tr.custom-row{border-left:3px solid var(--blue)}
+.me-count{font-size:.75rem;color:var(--text3)}
+
+/* Material Edit Form */
+.me-edit{max-width:900px;margin:0 auto;padding:16px}
+.me-edit h3{margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.me-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:0}
+.me-tab{padding:10px 18px;cursor:pointer;font-size:.85rem;font-weight:600;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.me-tab:hover{color:var(--text2)}
+.me-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.me-tab-content{display:none}
+.me-tab-content.active{display:block}
+.dp-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.dp-table th{text-align:left;padding:6px 8px;font-size:.7rem;color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border)}
+.dp-table td{padding:4px 8px}
+.dp-table input{padding:6px 8px;font-size:.85rem;text-align:right;width:100%}
+.dp-table tr.has-data td{background:rgba(34,197,94,.05)}
+.coeff-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.coeff-grid .form-group{margin-bottom:0}
+.coeff-grid label{font-size:.7rem}
+.coeff-grid input{font-size:.8rem;padding:6px 8px}
+.equation-preview{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-top:12px;font-family:var(--mono);font-size:.8rem;color:var(--text2);word-break:break-all;overflow-x:auto}
+.fit-results{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:12px}
+.fit-results .r2{font-size:1.2rem;font-weight:800;font-family:var(--mono)}
+.fit-results .r2.good{color:var(--green)}
+.fit-results .r2.ok{color:var(--accent2)}
+.fit-results .r2.bad{color:var(--red)}
+.order-btns{display:flex;gap:4px;margin:8px 0}
+.order-btn{padding:6px 14px;font-size:.8rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg4);color:var(--text);cursor:pointer;font-weight:600;transition:all .2s}
+.order-btn:hover{border-color:var(--accent)}
+.order-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.kpreview-chart{width:100%;height:250px;position:relative;margin-top:12px}
+
+/* ── Print ──────────────────────────────────────────────────── */
+@media print{
+  @page{margin:0.4in 0.5in;size:letter landscape}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  body{background:#fff!important;color:#111!important;font-size:9px;line-height:1.3}
+  .app-header,.btn,.layer-actions,.no-print,.unit-toggle{display:none!important}
+  .me-overlay{display:none!important}
+  .container{display:block;max-width:none;padding:0;gap:0}
+  .panel{border:1px solid #ccc;break-inside:avoid;margin-bottom:6px;padding:0;box-shadow:none;background:#fff!important}
+  .panel-header{background:#e8e8e8!important;color:#111!important;padding:4px 8px;font-size:10px}
+  .panel-body{padding:6px 8px}
+  .form-group{margin-bottom:2px}
+  .form-group label{font-size:8px;margin-bottom:1px}
+  input,select{border:none;background:transparent;padding:1px 2px;font-size:9px;color:#111!important}
+  
+  /* Print header */
+  .print-header{display:flex!important;justify-content:space-between;align-items:center;padding:4px 0 8px;border-bottom:2px solid #333;margin-bottom:8px}
+  .print-header .print-logo{font-weight:700;font-size:14px;color:#111}
+  .print-header .print-sub{font-size:9px;color:#666}
+  .print-header .print-date{font-size:9px;color:#666;text-align:right}
+  
+  /* Two-column layout for print */
+  .print-row{display:flex!important;gap:8px}
+  .print-col-left{flex:1;min-width:0}
+  .print-col-right{flex:1;min-width:0}
+  
+  /* Compact results — no dark boxes, just borders */
+  .result-cards{gap:4px!important}
+  .result-card{padding:4px 6px!important;background:#fff!important;border:1px solid #ccc!important;box-shadow:none!important}
+  .result-value{font-size:16px!important;color:#c35a00!important}
+  .result-label{font-size:7px!important;color:#555!important}
+  
+  /* Layer table compact */
+  #layersTableBody td,#layersTableBody th{padding:2px 4px;font-size:8px}
+  
+  /* Interface temps compact */
+  .interface-table td,.interface-table th{padding:1px 4px;font-size:8px}
+  
+  /* Chart fits nicely */
+  #chartPanel{break-before:avoid;margin-top:4px}
+  #chartPanel canvas{max-height:220px!important;width:100%!important}
+  
+  /* Hide operating conditions panel on print — show print-friendly version instead */
+  #operatingPanel{display:none!important}
+  .print-conditions{display:block!important}
+}
+
+/* ── Misc ───────────────────────────────────────────────────── */
+.divider{height:1px;background:var(--border);margin:16px 0}
+.text-muted{color:var(--text3);font-size:.8rem}
+.mt-12{margin-top:12px}
+.mb-8{margin-bottom:8px}
+.flex-between{display:flex;align-items:center;justify-content:space-between}
+.gap-8{gap:8px}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* responsive helpers for materials editor */
+@media(max-width:600px){
+  .me-header{padding:10px 12px;gap:8px}
+  .me-header h2{font-size:.95rem}
+  .me-body,.me-edit{padding:10px}
+  .me-table td,.me-table th{padding:6px 4px;font-size:.75rem}
+  .coeff-grid{grid-template-columns:1fr 1fr}
+  .dp-table td,.dp-table th{padding:3px 4px}
+  .dp-table input{padding:4px 6px;font-size:.8rem}
+  .order-btns{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+
+<!-- Print-only header (hidden on screen) -->
+<div class="print-header" style="display:none">
+  <div>
+    <div class="print-logo">ITC Coatings — Heat Flow Analysis</div>
+    <div class="print-sub">Refractory Wall Thermal Performance Report</div>
+  </div>
+  <div class="print-date" id="printDate"></div>
+</div>
+
+<!-- Print-only operating conditions summary (hidden on screen) -->
+<div class="print-conditions" style="display:none" id="printConditions"></div>
+
+<!-- ═══ HEADER ═══ -->
+<header class="app-header">
+  <div class="logo">
+    <div class="logo-icon">ITC</div>
+    <div>
+      <div class="logo-text">Heat Flow Calculator</div>
+      <div class="logo-sub">ITC Coatings — Refractory Wall Analysis</div>
+    </div>
+  </div>
+  <div class="header-actions no-print">
+    <button class="btn btn-secondary btn-sm" onclick="openMaterialsEditor()" title="Materials Editor">📋 Materials</button>
+    <button class="btn btn-secondary btn-sm" onclick="openSaveModal()" title="Save/Load">💾 Save/Load</button>
+    <button class="btn btn-secondary btn-sm" onclick="exportPDF()" title="Print / PDF">🖨️ Print</button>
+    <button class="btn btn-secondary btn-sm" onclick="resetAll()" title="Reset">🗑️ Reset</button>
+  </div>
+</header>
+
+<!-- ═══ MAIN CONTENT ═══ -->
+<div class="container">
+
+  <!-- ── Operating Conditions ── -->
+  <div class="panel" id="operatingPanel">
+    <div class="panel-header">
+      <span class="icon">🌡️</span> Operating Conditions
+      <div class="unit-toggle no-print">
+        <span class="unit-toggle-label unit-active" id="unitLabelImp">Imperial</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="unitToggle" onchange="toggleUnits()">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="unit-toggle-label" id="unitLabelMet">Metric</span>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="hotFaceTemp" id="lblHotFace">Hot Face Temperature (°F)</label>
+          <input type="number" id="hotFaceTemp" value="2000" step="10" min="0" max="5000">
+        </div>
+        <div class="form-group">
+          <label for="ambientTemp" id="lblAmbient">Ambient Temperature (°F)</label>
+          <input type="number" id="ambientTemp" value="80" step="1">
+        </div>
+      </div>
+      <div class="form-row three">
+        <div class="form-group">
+          <label for="windSpeed" id="lblWind">Wind Speed (mph)</label>
+          <input type="number" id="windSpeed" value="0" step="1" min="0">
+        </div>
+        <div class="form-group">
+          <label for="emissivity">Emissivity (0-1)</label>
+          <input type="number" id="emissivity" value="0.9" step="0.05" min="0" max="1">
+        </div>
+        <div class="form-group">
+          <label for="construction">Construction Type</label>
+          <select id="construction">
+            <option value="flat">Flat Wall</option>
+            <option value="roof">Roof</option>
+            <option value="hearth">Hearth</option>
+            <option value="cyl-h">Cylinder — Horizontal</option>
+            <option value="cyl-v">Cylinder — Vertical</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cylDiameter" id="lblCylDia">Cylinder OD (inches) <span class="text-muted">(if applicable)</span></label>
+          <input type="number" id="cylDiameter" value="48" step="1" min="1" disabled>
+        </div>
+        <div class="form-group">
+          <label for="cylLength" id="lblCylLen">Cylinder Length (inches) <span class="text-muted">(if applicable)</span></label>
+          <input type="number" id="cylLength" value="120" step="1" min="1" disabled>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Wall Builder ── -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="icon">🧱</span> Wall Builder <span class="text-muted" id="matCount"></span>
+      <span style="flex:1"></span>
+      <button class="btn btn-primary btn-sm no-print" onclick="addLayer()">+ Add Layer</button>
+    </div>
+    <div class="panel-body" style="padding:0;overflow-x:auto">
+      <table class="layer-table" id="layerTable">
+        <thead>
+          <tr>
+            <th style="width:30px">#</th>
+            <th>Material</th>
+            <th style="width:100px" id="thThickness">Thickness (in)</th>
+            <th class="no-print" style="width:70px"></th>
+          </tr>
+        </thead>
+        <tbody id="layerBody"></tbody>
+      </table>
+      <div style="padding:12px;text-align:center" id="noLayersMsg">
+        <span class="text-muted">No layers — click "Add Layer" to start building your wall</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Calculate Button ── -->
+  <div class="full-width no-print" style="text-align:center;padding:4px 0">
+    <button class="btn btn-primary" onclick="calculate()" style="padding:14px 48px;font-size:1rem" id="calcBtn">
+      ⚡ Calculate Heat Flow
+    </button>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="panel full-width" id="resultsPanel" style="display:none">
+    <div class="panel-header"><span class="icon">📊</span> Results</div>
+    <div class="panel-body">
+      <div class="results-grid" id="resultCards"></div>
+      <div class="divider"></div>
+      <h4 style="margin-bottom:8px;font-size:.9rem;color:var(--text2)">Interface Temperatures</h4>
+      <table class="interface-table" id="interfaceTable">
+        <thead>
+          <tr>
+            <th>Location</th>
+            <th id="thInterfaceTemp">Temperature (°F)</th>
+            <th>Material</th>
+            <th id="thInterfaceK">k at avg T</th>
+            <th>R (layer)</th>
+          </tr>
+        </thead>
+        <tbody id="interfaceBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Chart ── -->
+  <div class="panel full-width" id="chartPanel" style="display:none">
+    <div class="panel-header"><span class="icon">📈</span> Thermal Profile</div>
+    <div class="panel-body">
+      <div class="chart-wrap">
+        <canvas id="thermalChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ SAVE/LOAD MODAL ═══ -->
+<div class="modal-overlay" id="saveModal">
+  <div class="modal">
+    <div class="flex-between mb-8">
+      <h3>💾 Saved Configurations</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeSaveModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Save Current Configuration</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="saveName" placeholder="Configuration name...">
+        <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <ul class="saved-list" id="savedList"></ul>
+  </div>
+</div>
+
+<!-- ═══ MATERIALS EDITOR MODAL ═══ -->
+<div class="me-overlay" id="matEditorOverlay">
+  <!-- List View -->
+  <div id="meListView">
+    <div class="me-header">
+      <button class="btn btn-secondary btn-sm" onclick="closeMaterialsEditor()">← Back</button>
+      <h2>📋 Materials Editor</h2>
+      <span class="me-count" id="meCount"></span>
+      <input type="text" class="me-search" id="meSearch" placeholder="Search materials..." oninput="renderMEList()">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="editMaterial(null)">+ New Material</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportMaterials()">📥 Export</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('meImportFile').click()">📤 Import</button>
+        <input type="file" id="meImportFile" accept=".json" style="display:none" onchange="importMaterials(event)">
+      </div>
+    </div>
+    <div class="me-body">
+      <div class="me-table-wrap">
+        <table class="me-table" id="meTable">
+          <thead>
+            <tr>
+              <th onclick="meSortBy('name')">Name <span class="sort-arrow" id="meSort-name"></span></th>
+              <th onclick="meSortBy('mfr')">Manufacturer <span class="sort-arrow" id="meSort-mfr"></span></th>
+              <th onclick="meSortBy('source')">Source <span class="sort-arrow" id="meSort-source"></span></th>
+              <th onclick="meSortBy('maxTemp')">Max Temp <span class="sort-arrow" id="meSort-maxTemp"></span></th>
+              <th onclick="meSortBy('density')">Density <span class="sort-arrow" id="meSort-density"></span></th>
+              <th>k Points</th>
+              <th style="width:60px"></th>
+            </tr>
+          </thead>
+          <tbody id="meTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit View -->
+  <div id="meEditView" style="display:none">
+    <div class="me-header">
+      <button class="btn btn-secondary btn-sm" onclick="cancelEditMaterial()">← Back to List</button>
+      <h2 id="meEditTitle">Edit Material</h2>
+      <span style="flex:1"></span>
+      <button class="btn btn-success btn-sm" onclick="saveMaterialEdit()">💾 Save Material</button>
+    </div>
+    <div class="me-edit">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="meName">Material Name</label>
+          <input type="text" id="meName" placeholder="e.g. Custom Insulating Firebrick">
+        </div>
+        <div class="form-group">
+          <label for="meMfr">Manufacturer</label>
+          <input type="text" id="meMfr" placeholder="e.g. ITC Coatings">
+        </div>
+      </div>
+      <div class="form-row three">
+        <div class="form-group">
+          <label for="meSource">Source / Comment</label>
+          <input type="text" id="meSource" placeholder="e.g. Lab test 2024">
+        </div>
+        <div class="form-group">
+          <label for="meMaxTemp">Max Use Temperature (°F)</label>
+          <input type="number" id="meMaxTemp" value="2000" step="50">
+        </div>
+        <div class="form-group">
+          <label for="meDensity">Density (lb/ft³)</label>
+          <input type="number" id="meDensity" value="100" step="1">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <h4 style="margin-bottom:12px;font-size:.9rem;color:var(--text2)">Conductivity Data</h4>
+
+      <div class="me-tabs">
+        <div class="me-tab active" onclick="switchMETab('datapoints')">📊 Data Points</div>
+        <div class="me-tab" onclick="switchMETab('coefficients')">🔧 Direct Coefficients</div>
+      </div>
+
+      <!-- Tab A: Data Points -->
+      <div class="me-tab-content active" id="meTabDatapoints">
+        <p class="text-muted mb-8">Enter known Temperature / Conductivity pairs. Leave blank for unknown temperatures.</p>
+        <div style="overflow-x:auto">
+          <table class="dp-table" id="dpTable">
+            <thead><tr><th style="width:50%">Temperature (°F)</th><th>Conductivity (BTU·in/hr·ft²·°F)</th></tr></thead>
+            <tbody id="dpTableBody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="fitCurve()">📐 Fit Curve</button>
+          <span class="text-muted">Polynomial order:</span>
+          <div class="order-btns" id="orderBtns">
+            <div class="order-btn" onclick="setFitOrder(1)">1st</div>
+            <div class="order-btn" onclick="setFitOrder(2)">2nd</div>
+            <div class="order-btn active" onclick="setFitOrder(3)">3rd</div>
+            <div class="order-btn" onclick="setFitOrder(4)">4th</div>
+            <div class="order-btn" onclick="setFitOrder(5)">5th</div>
+            <div class="order-btn" onclick="setFitOrder(6)">6th</div>
+          </div>
+        </div>
+        <div class="fit-results" id="fitResults" style="display:none">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div>R² = <span class="r2" id="fitR2">—</span></div>
+            <button class="btn btn-success btn-sm" id="applyFitBtn" onclick="applyFitCoeffs()">✅ Apply These Coefficients</button>
+          </div>
+          <div class="equation-preview" id="fitEquation" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Tab B: Direct Coefficients -->
+      <div class="me-tab-content" id="meTabCoefficients">
+        <p class="text-muted mb-8">Enter polynomial coefficients directly: k(T) = b0 + b1·T + b2·T² + … + b6·T⁶</p>
+        <div class="coeff-grid">
+          <div class="form-group"><label>b0 (constant)</label><input type="number" id="meB0" step="any" value="0"></div>
+          <div class="form-group"><label>b1 (×T)</label><input type="number" id="meB1" step="any" value="0"></div>
+          <div class="form-group"><label>b2 (×T²)</label><input type="number" id="meB2" step="any" value="0"></div>
+          <div class="form-group"><label>b3 (×T³)</label><input type="number" id="meB3" step="any" value="0"></div>
+          <div class="form-group"><label>b4 (×T⁴)</label><input type="number" id="meB4" step="any" value="0"></div>
+          <div class="form-group"><label>b5 (×T⁵)</label><input type="number" id="meB5" step="any" value="0"></div>
+          <div class="form-group"><label>b6 (×T⁶)</label><input type="number" id="meB6" step="any" value="0"></div>
+        </div>
+        <div class="equation-preview" id="coeffEquation">k(T) = 0</div>
+      </div>
+
+      <!-- Conductivity Preview Chart -->
+      <div class="kpreview-chart">
+        <canvas id="kPreviewChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ JAVASCRIPT ═══ -->
+<script>
+// ── State ──────────────────────────────────────────────────────
+let layers = [];
+let layerIdCounter = 0;
+let thermalChart = null;
+let lastResults = null;
+let unitSystem = 'imperial'; // 'imperial' or 'metric'
+let customMaterials = []; // loaded from localStorage
+let allMaterials = [];    // built-in + custom merged
+
+// Materials Editor state
+let meSortField = 'name';
+let meSortDir = 1;
+let meEditingIdx = null; // index in allMaterials, or -1 for new
+let meEditingCustomName = null; // original name if editing existing custom
+let fitOrder = 3;
+let fitCoeffs = null;
+let kPreviewChart = null;
+
+// ── Constants ──────────────────────────────────────────────────
+const STEFAN_BOLTZMANN = 1.714e-9; // BTU/hr·ft²·°R⁴
+const GRAVITY = 32.174 * 3600 * 3600;
+const CUSTOM_MATERIALS_KEY = 'itc-heatflow-custom-materials';
+const STORAGE_KEY = 'itc-heatflow-configs';
+
+// ── Unit Conversion ────────────────────────────────────────────
+const CONV = {
+  tempToMetric: f => (f - 32) * 5 / 9,
+  tempToImperial: c => c * 9 / 5 + 32,
+  thickToMetric: i => i * 2.54,
+  thickToImperial: cm => cm / 2.54,
+  heatFluxToMetric: btu => btu * 3.15459,
+  heatFluxToImperial: w => w / 3.15459,
+  kToMetric: k => k * 0.14413,
+  kToImperial: k => k / 0.14413,
+  densityToMetric: d => d * 16.0185,
+  densityToImperial: d => d / 16.0185,
+  windToMetric: mph => mph * 0.44704,
+  windToImperial: ms => ms / 0.44704,
+  heatStorageToMetric: btu => btu * 11.3565, // BTU/ft² to kJ/m²
+  heatStorageToImperial: kj => kj / 11.3565,
+};
+
+function isMetric() { return unitSystem === 'metric'; }
+
+function dispTemp(fVal) { return isMetric() ? CONV.tempToMetric(fVal) : fVal; }
+function dispThick(inVal) { return isMetric() ? CONV.thickToMetric(inVal) : inVal; }
+function dispHeatFlux(btuVal) { return isMetric() ? CONV.heatFluxToMetric(btuVal) : btuVal; }
+function dispK(kVal) { return isMetric() ? CONV.kToMetric(kVal) : kVal; }
+function dispDensity(dVal) { return isMetric() ? CONV.densityToMetric(dVal) : dVal; }
+function dispWind(mphVal) { return isMetric() ? CONV.windToMetric(mphVal) : mphVal; }
+function dispHeatStorage(btuVal) { return isMetric() ? CONV.heatStorageToMetric(btuVal) : btuVal; }
+
+function tempUnit() { return isMetric() ? '°C' : '°F'; }
+function thickUnit() { return isMetric() ? 'cm' : 'in'; }
+function heatFluxUnit() { return isMetric() ? 'W/m²' : 'BTU/hr·ft²'; }
+function kUnit() { return isMetric() ? 'W/m·K' : 'BTU·in/hr·ft²·°F'; }
+function densityUnit() { return isMetric() ? 'kg/m³' : 'lb/ft³'; }
+function windUnit() { return isMetric() ? 'm/s' : 'mph'; }
+function heatStorageUnit() { return isMetric() ? 'kJ/m²' : 'BTU/ft²'; }
+
+// ── Init ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof MATERIALS === 'undefined' || !MATERIALS.length) {
+    alert('ERROR: Materials database failed to load. Check network.');
+    return;
+  }
+  console.log('Built-in materials loaded:', MATERIALS.length);
+
+  loadCustomMaterials();
+  mergeMaterials();
+
+  document.getElementById('matCount').textContent = '(' + allMaterials.length + ' materials)';
+
+  document.getElementById('construction').addEventListener('change', function() {
+    const isCyl = this.value.startsWith('cyl');
+    document.getElementById('cylDiameter').disabled = !isCyl;
+    document.getElementById('cylLength').disabled = !isCyl;
+  });
+
+  let debounceTimer;
+  document.querySelectorAll('#hotFaceTemp,#ambientTemp,#windSpeed,#emissivity,#construction,#cylDiameter,#cylLength').forEach(el => {
+    el.addEventListener('change', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => { if(layers.length > 0) calculate(); }, 300);
+    });
+  });
+
+  // Add default layers
+  const defaultBrickIdx = allMaterials.findIndex(m => m.name === MATERIALS[0].name);
+  const defaultCoatIdx = allMaterials.findIndex(m => m.name === MATERIALS[286]?.name);
+  addLayer(defaultBrickIdx >= 0 ? defaultBrickIdx : 0);
+  layers[0].thickness = 4.5;
+  addLayer(defaultCoatIdx >= 0 ? defaultCoatIdx : Math.min(286, allMaterials.length - 1));
+  layers[1].thickness = 0.0625;
+  renderLayers();
+
+  // Listen for coeff inputs to update preview
+  for (let i = 0; i <= 6; i++) {
+    document.getElementById('meB' + i).addEventListener('input', updateCoeffPreview);
+  }
+});
+
+// ── Custom Materials Storage ───────────────────────────────────
+function loadCustomMaterials() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_MATERIALS_KEY);
+    customMaterials = raw ? JSON.parse(raw) : [];
+  } catch { customMaterials = []; }
+}
+
+function saveCustomMaterials() {
+  localStorage.setItem(CUSTOM_MATERIALS_KEY, JSON.stringify(customMaterials));
+}
+
+function mergeMaterials() {
+  // Start with built-in, then override/add custom
+  const byName = new Map();
+  MATERIALS.forEach((m, i) => byName.set(m.name, { ...m, _builtIn: true, _origIdx: i }));
+  customMaterials.forEach(m => byName.set(m.name, { ...m, _custom: true }));
+  allMaterials = Array.from(byName.values());
+  // Update material count display
+  const el = document.getElementById('matCount');
+  if (el) el.textContent = '(' + allMaterials.length + ' materials)';
+}
+
+// ── Unit Toggle ────────────────────────────────────────────────
+function toggleUnits() {
+  const wasMetric = isMetric();
+  const hotEl = document.getElementById('hotFaceTemp');
+  const ambEl = document.getElementById('ambientTemp');
+  const windEl = document.getElementById('windSpeed');
+  const cylDiaEl = document.getElementById('cylDiameter');
+  const cylLenEl = document.getElementById('cylLength');
+
+  // Get current values as Imperial
+  let hotF, ambF, windMph, cylDiaIn, cylLenIn;
+  if (wasMetric) {
+    // Currently metric, switching to imperial
+    hotF = CONV.tempToImperial(parseFloat(hotEl.value) || 0);
+    ambF = CONV.tempToImperial(parseFloat(ambEl.value) || 0);
+    windMph = CONV.windToImperial(parseFloat(windEl.value) || 0);
+    cylDiaIn = CONV.thickToImperial(parseFloat(cylDiaEl.value) || 0);
+    cylLenIn = CONV.thickToImperial(parseFloat(cylLenEl.value) || 0);
+    unitSystem = 'imperial';
+  } else {
+    // Currently imperial, switching to metric
+    hotF = parseFloat(hotEl.value) || 0;
+    ambF = parseFloat(ambEl.value) || 0;
+    windMph = parseFloat(windEl.value) || 0;
+    cylDiaIn = parseFloat(cylDiaEl.value) || 0;
+    cylLenIn = parseFloat(cylLenEl.value) || 0;
+    unitSystem = 'metric';
+  }
+
+  // Convert layer thicknesses
+  layers.forEach(l => {
+    // l.thickness is always stored in inches internally
+    // No change needed — we convert on display
+  });
+
+  // Update input fields
+  if (isMetric()) {
+    hotEl.value = round2(CONV.tempToMetric(hotF));
+    ambEl.value = round2(CONV.tempToMetric(ambF));
+    windEl.value = round2(CONV.windToMetric(windMph));
+    cylDiaEl.value = round2(CONV.thickToMetric(cylDiaIn));
+    cylLenEl.value = round2(CONV.thickToMetric(cylLenIn));
+  } else {
+    hotEl.value = round2(hotF);
+    ambEl.value = round2(ambF);
+    windEl.value = round2(windMph);
+    cylDiaEl.value = round2(cylDiaIn);
+    cylLenEl.value = round2(cylLenIn);
+  }
+
+  // Update labels
+  document.getElementById('lblHotFace').textContent = 'Hot Face Temperature (' + tempUnit() + ')';
+  document.getElementById('lblAmbient').textContent = 'Ambient Temperature (' + tempUnit() + ')';
+  document.getElementById('lblWind').textContent = 'Wind Speed (' + windUnit() + ')';
+  document.getElementById('lblCylDia').innerHTML = 'Cylinder OD (' + thickUnit() + ') <span class="text-muted">(if applicable)</span>';
+  document.getElementById('lblCylLen').innerHTML = 'Cylinder Length (' + thickUnit() + ') <span class="text-muted">(if applicable)</span>';
+  document.getElementById('thThickness').textContent = 'Thickness (' + thickUnit() + ')';
+
+  // Toggle styling
+  document.getElementById('unitLabelImp').classList.toggle('unit-active', !isMetric());
+  document.getElementById('unitLabelMet').classList.toggle('unit-active', isMetric());
+
+  renderLayers();
+  if (lastResults) displayResults();
+}
+
+function round2(v) { return Math.round(v * 100) / 100; }
+
+// ── Get Imperial input values (convert from display) ───────────
+function getImperialInputs() {
+  let hotF = parseFloat(document.getElementById('hotFaceTemp').value);
+  let ambF = parseFloat(document.getElementById('ambientTemp').value);
+  let windMph = parseFloat(document.getElementById('windSpeed').value);
+
+  if (isMetric()) {
+    hotF = CONV.tempToImperial(hotF);
+    ambF = CONV.tempToImperial(ambF);
+    windMph = CONV.windToImperial(windMph);
+  }
+
+  return {
+    T_hot: hotF,
+    T_amb: ambF,
+    wind: windMph,
+    emiss: parseFloat(document.getElementById('emissivity').value),
+    constr: document.getElementById('construction').value
+  };
+}
+
+// ── Material helpers ───────────────────────────────────────────
+function kAt(mat, T) {
+  const b = mat.b;
+  let k = 0, Tn = 1;
+  for (let i = 0; i < 7; i++) {
+    k += b[i] * Tn;
+    Tn *= T;
+  }
+  return Math.max(k, 0.01);
+}
+
+function kAvg(mat, T1, T2) {
+  const Tmid = (T1 + T2) / 2;
+  return (kAt(mat, T1) + 4 * kAt(mat, Tmid) + kAt(mat, T2)) / 6;
+}
+
+// ── Layer Management ───────────────────────────────────────────
+function addLayer(matIdx) {
+  if (layers.length >= 8) return alert('Maximum 8 layers');
+  layers.push({
+    id: ++layerIdCounter,
+    materialIdx: matIdx !== undefined ? matIdx : 0,
+    thickness: 1.0, // always stored in inches
+    searchText: ''
+  });
+  renderLayers();
+}
+
+function removeLayer(id) {
+  layers = layers.filter(l => l.id !== id);
+  renderLayers();
+  if (layers.length > 0 && lastResults) calculate();
+}
+
+function moveLayer(id, dir) {
+  const idx = layers.findIndex(l => l.id === id);
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= layers.length) return;
+  [layers[idx], layers[newIdx]] = [layers[newIdx], layers[idx]];
+  renderLayers();
+  if (lastResults) calculate();
+}
+
+function renderLayers() {
+  const tbody = document.getElementById('layerBody');
+  const noMsg = document.getElementById('noLayersMsg');
+  noMsg.style.display = layers.length === 0 ? '' : 'none';
+
+  const inputs = getImperialInputs();
+
+  tbody.innerHTML = layers.map((layer, idx) => {
+    const mat = allMaterials[layer.materialIdx];
+    const overTemp = mat && inputs.T_hot > mat.maxTemp;
+    const customBadge = mat && mat._custom ? '<span class="mat-custom-badge">CUSTOM</span>' : '';
+    const dispThk = isMetric() ? round2(CONV.thickToMetric(layer.thickness)) : layer.thickness;
+    const dUnit = densityUnit();
+    const tUnit = tempUnit();
+    const dispDens = mat ? round2(dispDensity(mat.density)) : '';
+    const dispMaxT = mat ? round2(dispTemp(mat.maxTemp)) : '';
+
+    return `
+      <tr data-id="${layer.id}">
+        <td class="layer-num">${idx + 1}</td>
+        <td class="layer-material">
+          <div class="mat-search-wrap">
+            <input type="text" class="mat-search-input"
+              value="${mat ? mat.name : 'Tap to select material...'}"
+              placeholder="Search materials..."
+              onclick="openMatDropdown(this, ${layer.id})"
+              onfocus="openMatDropdown(this, ${layer.id})"
+              oninput="filterMaterials(this, ${layer.id})"
+              data-layer-id="${layer.id}"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <div class="mat-dropdown" id="matDrop-${layer.id}"></div>
+          </div>
+          <div class="layer-info">
+            ${mat ? `${mat.mfr} ${customBadge} | ${dispDens} ${dUnit} | Max ${dispMaxT}${tUnit}` : 'No material selected'}
+            ${overTemp ? `<span class="temp-warn"> ⚠ Exceeds max temp!</span>` : ''}
+          </div>
+        </td>
+        <td class="layer-thickness">
+          <input type="number" value="${dispThk}" step="${isMetric() ? '0.5' : '0.25'}" min="0.01"
+            onchange="updateThickness(${layer.id}, this.value)">
+        </td>
+        <td class="layer-actions no-print">
+          <button class="btn btn-sm btn-icon btn-secondary" onclick="moveLayer(${layer.id},-1)" title="Move up" ${idx === 0 ? 'disabled' : ''}>▲</button>
+          <button class="btn btn-sm btn-icon btn-secondary" onclick="moveLayer(${layer.id},1)" title="Move down" ${idx === layers.length-1 ? 'disabled' : ''}>▼</button>
+          <button class="btn btn-sm btn-icon btn-danger" onclick="removeLayer(${layer.id})" title="Remove">✕</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function updateThickness(id, val) {
+  const layer = layers.find(l => l.id === id);
+  if (!layer) return;
+  let inches = parseFloat(val) || 0.25;
+  if (isMetric()) inches = CONV.thickToImperial(inches);
+  layer.thickness = inches;
+  if (lastResults) calculate();
+}
+
+// ── Material Search Dropdown ───────────────────────────────────
+let activeDropdown = null;
+let highlightedIdx = -1;
+
+function openMatDropdown(input, layerId) {
+  closeAllDropdowns();
+  const dd = document.getElementById(`matDrop-${layerId}`);
+  activeDropdown = { dd, input, layerId };
+  highlightedIdx = -1;
+  input.select();
+  showFilteredMaterials(dd, '', layerId);
+  dd.classList.add('open');
+  input.addEventListener('keydown', handleMatKeydown);
+  setTimeout(() => { dd.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 100);
+}
+
+function filterMaterials(input, layerId) {
+  const dd = document.getElementById(`matDrop-${layerId}`);
+  const query = input.value.toLowerCase();
+  highlightedIdx = -1;
+  showFilteredMaterials(dd, query, layerId);
+}
+
+function showFilteredMaterials(dd, query, layerId) {
+  const filtered = allMaterials.map((m, i) => ({ ...m, idx: i }))
+    .filter(m => !query ||
+      m.name.toLowerCase().includes(query) ||
+      m.mfr.toLowerCase().includes(query));
+
+  const tUnit = tempUnit();
+  const dUnit = densityUnit();
+
+  dd.innerHTML = filtered.map((m, i) => {
+    const badge = m._custom ? '<span class="mat-custom-badge">CUSTOM</span>' : '';
+    return `
+    <div class="mat-option ${i === highlightedIdx ? 'highlighted' : ''}"
+      onmousedown="selectMaterial(${layerId}, ${m.idx})"
+      ontouchend="event.preventDefault(); selectMaterial(${layerId}, ${m.idx})"
+      data-idx="${i}">
+      <div class="mat-name">${m.name}${badge}</div>
+      <div class="mat-meta">
+        <span>${m.mfr}</span>
+        <span>${round2(dispTemp(m.maxTemp))}${tUnit} max</span>
+        <span>${round2(dispDensity(m.density))} ${dUnit}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  if (filtered.length === 0) {
+    dd.innerHTML = '<div style="padding:12px;color:var(--text3);text-align:center">No materials found</div>';
+  }
+  dd.classList.add('open');
+}
+
+function handleMatKeydown(e) {
+  if (!activeDropdown) return;
+  const options = activeDropdown.dd.querySelectorAll('.mat-option');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    highlightedIdx = Math.min(highlightedIdx + 1, options.length - 1);
+    updateHighlight(options);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    highlightedIdx = Math.max(highlightedIdx - 1, 0);
+    updateHighlight(options);
+  } else if (e.key === 'Enter' && highlightedIdx >= 0) {
+    e.preventDefault();
+    const opt = options[highlightedIdx];
+    if (opt) opt.dispatchEvent(new Event('mousedown'));
+  } else if (e.key === 'Escape') {
+    closeAllDropdowns();
+  }
+}
+
+function updateHighlight(options) {
+  options.forEach((o, i) => o.classList.toggle('highlighted', i === highlightedIdx));
+  if (options[highlightedIdx]) options[highlightedIdx].scrollIntoView({ block: 'nearest' });
+}
+
+function selectMaterial(layerId, matIdx) {
+  const layer = layers.find(l => l.id === layerId);
+  if (layer) layer.materialIdx = matIdx;
+  closeAllDropdowns();
+  renderLayers();
+  if (lastResults) calculate();
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.mat-dropdown').forEach(d => d.classList.remove('open'));
+  if (activeDropdown) {
+    activeDropdown.input.removeEventListener('keydown', handleMatKeydown);
+    activeDropdown = null;
+  }
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.mat-search-wrap')) closeAllDropdowns();
+});
+
+// ── Heat Transfer Calculation ──────────────────────────────────
+function calculate() {
+  if (layers.length === 0) return alert('Add at least one wall layer');
+
+  const inp = getImperialInputs();
+  const T_hot = inp.T_hot;
+  const T_amb = inp.T_amb;
+  const wind = inp.wind;
+  const emiss = inp.emiss;
+  const constr = inp.constr;
+
+  if (isNaN(T_hot) || isNaN(T_amb)) return alert('Enter valid temperatures');
+  if (T_hot <= T_amb) return alert('Hot face must be hotter than ambient');
+
+  const n = layers.length;
+  const mats = layers.map(l => allMaterials[l.materialIdx]);
+  const thick = layers.map(l => l.thickness);
+
+  let T = new Array(n + 1);
+  for (let i = 0; i <= n; i++) {
+    T[i] = T_hot - (T_hot - T_amb) * (i / (n + 1));
+  }
+  T[0] = T_hot;
+
+  let q = 0;
+  const MAX_ITER = 200;
+  const TOL = 0.01;
+
+  for (let iter = 0; iter < MAX_ITER; iter++) {
+    let R_total = 0;
+    let R_layers = [];
+    let k_layers = [];
+
+    for (let i = 0; i < n; i++) {
+      const k = kAvg(mats[i], T[i], T[i + 1]);
+      k_layers.push(k);
+      const R = thick[i] / k;
+      R_layers.push(R);
+      R_total += R;
+    }
+
+    const T_cold = T[n];
+    const h_out = calcOutsideH(T_cold, T_amb, wind, emiss, constr);
+    const R_surface = 1 / h_out;
+    R_total += R_surface;
+
+    q = (T_hot - T_amb) / R_total;
+
+    let T_new = new Array(n + 1);
+    T_new[0] = T_hot;
+    for (let i = 0; i < n; i++) {
+      T_new[i + 1] = T_new[i] - q * R_layers[i];
+    }
+
+    let maxDiff = 0;
+    for (let i = 1; i <= n; i++) {
+      maxDiff = Math.max(maxDiff, Math.abs(T_new[i] - T[i]));
+    }
+    T = T_new;
+    if (maxDiff < TOL) break;
+  }
+
+  let R_layers = [];
+  let k_layers = [];
+  for (let i = 0; i < n; i++) {
+    const k = kAvg(mats[i], T[i], T[i + 1]);
+    k_layers.push(k);
+    R_layers.push(thick[i] / k);
+  }
+  const h_out = calcOutsideH(T[n], T_amb, wind, emiss, constr);
+  const R_surface = 1 / h_out;
+
+  let heatStorage = 0;
+  for (let i = 0; i < n; i++) {
+    const T_avg = (T[i] + T[i + 1]) / 2;
+    const density = mats[i].density;
+    const cp = 0.25;
+    const thickFt = thick[i] / 12;
+    heatStorage += density * cp * (T_avg - T_amb) * thickFt;
+  }
+
+  const totalThick = thick.reduce((a, b) => a + b, 0);
+
+  lastResults = { T, q, R_layers, k_layers, R_surface, h_out, heatStorage, totalThick, mats, thick, T_amb };
+  displayResults();
+}
+
+function calcOutsideH(T_surf, T_amb, windMph, emiss, constr) {
+  const dT = Math.max(T_surf - T_amb, 1);
+  let h_conv;
+  if (windMph > 0.5) {
+    const windFtS = windMph * 5280 / 3600;
+    h_conv = 1.0 + 0.28 * Math.pow(windFtS, 0.8);
+  } else {
+    if (constr === 'roof') {
+      // Horizontal hot surface facing up — enhanced natural convection
+      h_conv = 0.38 * Math.pow(dT, 0.25);
+    } else if (constr === 'hearth') {
+      // Horizontal hot surface facing down — suppressed natural convection
+      h_conv = 0.20 * Math.pow(dT, 0.25);
+    } else if (constr === 'flat' || constr === 'cyl-v') {
+      h_conv = 0.29 * Math.pow(dT, 0.25);
+    } else {
+      h_conv = 0.27 * Math.pow(dT, 0.25);
+    }
+  }
+  const T_sR = T_surf + 459.67;
+  const T_aR = T_amb + 459.67;
+  const h_rad = emiss * STEFAN_BOLTZMANN * (T_sR * T_sR + T_aR * T_aR) * (T_sR + T_aR);
+  return h_conv + h_rad;
+}
+
+// ── Display Results ────────────────────────────────────────────
+function displayResults() {
+  const r = lastResults;
+  document.getElementById('resultsPanel').style.display = '';
+  document.getElementById('chartPanel').style.display = '';
+
+  const qDisp = dispHeatFlux(r.q);
+  const coldDisp = dispTemp(r.T[r.T.length - 1]);
+  const thickDisp = dispThick(r.totalThick);
+  const storDisp = dispHeatStorage(r.heatStorage);
+
+  document.getElementById('resultCards').innerHTML = `
+    <div class="result-card">
+      <div class="result-label">Heat Loss</div>
+      <div class="result-value">${qDisp.toFixed(1)}</div>
+      <div class="result-unit">${heatFluxUnit()}</div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Cold Face Temp</div>
+      <div class="result-value">${coldDisp.toFixed(1)}</div>
+      <div class="result-unit">${tempUnit()}</div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Total Thickness</div>
+      <div class="result-value">${thickDisp.toFixed(2)}</div>
+      <div class="result-unit">${thickUnit()}</div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Heat Storage</div>
+      <div class="result-value">${storDisp.toFixed(0)}</div>
+      <div class="result-unit">${heatStorageUnit()}</div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Surface h</div>
+      <div class="result-value">${r.h_out.toFixed(2)}</div>
+      <div class="result-unit">BTU/hr·ft²·°F</div>
+    </div>
+    <div class="result-card">
+      <div class="result-label">Surface R</div>
+      <div class="result-value">${r.R_surface.toFixed(3)}</div>
+      <div class="result-unit">hr·ft²·°F/BTU</div>
+    </div>`;
+
+  // Interface table
+  document.getElementById('thInterfaceTemp').textContent = 'Temperature (' + tempUnit() + ')';
+  document.getElementById('thInterfaceK').textContent = 'k (' + (isMetric() ? 'W/m·K' : 'BTU·in') + ')';
+
+  const tbody = document.getElementById('interfaceBody');
+  let rows = `<tr>
+    <td>Hot Face</td>
+    <td style="font-weight:700;color:var(--red)">${dispTemp(r.T[0]).toFixed(1)}${tempUnit()}</td>
+    <td>—</td><td>—</td><td>—</td>
+  </tr>`;
+
+  for (let i = 0; i < r.mats.length; i++) {
+    const loc = i === r.mats.length - 1 ? 'Cold Face' : `Interface ${i + 1}→${i + 2}`;
+    rows += `<tr>
+      <td>${loc}</td>
+      <td style="font-weight:700;${i === r.mats.length - 1 ? 'color:var(--blue)' : ''}">${dispTemp(r.T[i + 1]).toFixed(1)}${tempUnit()}</td>
+      <td>${r.mats[i].name}</td>
+      <td>${dispK(r.k_layers[i]).toFixed(3)}</td>
+      <td>${r.R_layers[i].toFixed(4)}</td>
+    </tr>`;
+  }
+
+  rows += `<tr>
+    <td>Ambient</td>
+    <td style="color:var(--text3)">${dispTemp(r.T_amb).toFixed(1)}${tempUnit()}</td>
+    <td colspan="2">Surface (conv + rad)</td>
+    <td>${r.R_surface.toFixed(4)}</td>
+  </tr>`;
+
+  tbody.innerHTML = rows;
+  drawChart();
+}
+
+// ── Chart ──────────────────────────────────────────────────────
+function drawChart() {
+  const r = lastResults;
+  let positions = [0];
+  let temps = [r.T[0]];
+
+  let cumThick = 0;
+  for (let i = 0; i < r.thick.length; i++) {
+    const steps = 10;
+    for (let s = 1; s <= steps; s++) {
+      const frac = s / steps;
+      const pos = cumThick + r.thick[i] * frac;
+      const temp = r.T[i] + (r.T[i + 1] - r.T[i]) * frac;
+      positions.push(pos);
+      temps.push(temp);
+    }
+    cumThick += r.thick[i];
+  }
+
+  // Convert for display
+  const dispPos = positions.map(p => dispThick(p).toFixed(2));
+  const dispTemps = temps.map(t => dispTemp(t));
+
+  const layerColors = ['rgba(232,108,44,0.08)', 'rgba(59,130,246,0.08)', 'rgba(34,197,94,0.08)',
+    'rgba(245,158,11,0.08)', 'rgba(168,85,247,0.08)', 'rgba(236,72,153,0.08)',
+    'rgba(20,184,166,0.08)', 'rgba(239,68,68,0.08)'];
+
+  const ctx = document.getElementById('thermalChart').getContext('2d');
+  if (thermalChart) thermalChart.destroy();
+
+  thermalChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dispPos,
+      datasets: [{
+        label: 'Temperature (' + tempUnit() + ')',
+        data: dispTemps,
+        borderColor: '#e86c2c',
+        backgroundColor: 'rgba(232,108,44,0.15)',
+        fill: true,
+        tension: 0.1,
+        pointRadius: 0,
+        borderWidth: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(24,27,36,0.95)',
+          titleColor: '#e0e4f0',
+          bodyColor: '#e0e4f0',
+          borderColor: '#2e3346',
+          borderWidth: 1,
+          callbacks: {
+            title: ctx => `Position: ${ctx[0].label} ${thickUnit()} from hot face`,
+            label: ctx => `Temperature: ${ctx.raw.toFixed(1)}${tempUnit()}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Position (' + thickUnit() + ' from hot face)', color: '#a0a8c0' },
+          ticks: { color: '#6b7394', maxTicksLimit: 10 },
+          grid: { color: 'rgba(46,51,70,0.5)' }
+        },
+        y: {
+          title: { display: true, text: 'Temperature (' + tempUnit() + ')', color: '#a0a8c0' },
+          ticks: { color: '#6b7394' },
+          grid: { color: 'rgba(46,51,70,0.5)' }
+        }
+      }
+    }
+  });
+}
+
+// ── Save/Load ──────────────────────────────────────────────────
+function getConfigs() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveConfig() {
+  const name = document.getElementById('saveName').value.trim();
+  if (!name) return alert('Enter a name');
+
+  const config = {
+    name,
+    date: new Date().toISOString(),
+    hotFaceTemp: document.getElementById('hotFaceTemp').value,
+    ambientTemp: document.getElementById('ambientTemp').value,
+    windSpeed: document.getElementById('windSpeed').value,
+    emissivity: document.getElementById('emissivity').value,
+    construction: document.getElementById('construction').value,
+    cylDiameter: document.getElementById('cylDiameter').value,
+    cylLength: document.getElementById('cylLength').value,
+    unitSystem: unitSystem,
+    layers: layers.map(l => ({
+      materialName: allMaterials[l.materialIdx]?.name,
+      materialIdx: l.materialIdx,
+      thickness: l.thickness
+    }))
+  };
+
+  const configs = getConfigs();
+  configs.unshift(config);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(configs));
+  document.getElementById('saveName').value = '';
+  renderSavedList();
+}
+
+function loadConfig(idx) {
+  const configs = getConfigs();
+  const c = configs[idx];
+  if (!c) return;
+
+  // Reset to imperial for loading
+  if (isMetric()) {
+    unitSystem = 'imperial';
+    document.getElementById('unitToggle').checked = false;
+    document.getElementById('unitLabelImp').classList.add('unit-active');
+    document.getElementById('unitLabelMet').classList.remove('unit-active');
+    updateLabelsForUnit();
+  }
+
+  document.getElementById('hotFaceTemp').value = c.hotFaceTemp;
+  document.getElementById('ambientTemp').value = c.ambientTemp;
+  document.getElementById('windSpeed').value = c.windSpeed;
+  document.getElementById('emissivity').value = c.emissivity;
+  document.getElementById('construction').value = c.construction;
+  document.getElementById('cylDiameter').value = c.cylDiameter || 48;
+  document.getElementById('cylLength').value = c.cylLength || 120;
+
+  const isCyl = (c.construction || '').startsWith('cyl');
+  document.getElementById('cylDiameter').disabled = !isCyl;
+  document.getElementById('cylLength').disabled = !isCyl;
+
+  layerIdCounter = 0;
+  layers = c.layers.map(l => {
+    // Try to find by name first (handles custom materials and re-merged arrays)
+    let matIdx = l.materialIdx;
+    if (l.materialName) {
+      const byName = allMaterials.findIndex(m => m.name === l.materialName);
+      if (byName >= 0) matIdx = byName;
+    }
+    return {
+      id: ++layerIdCounter,
+      materialIdx: matIdx,
+      thickness: l.thickness,
+      searchText: ''
+    };
+  });
+
+  renderLayers();
+  closeSaveModal();
+
+  // If config was saved in metric, switch to metric
+  if (c.unitSystem === 'metric') {
+    document.getElementById('unitToggle').checked = true;
+    toggleUnits();
+  }
+
+  calculate();
+}
+
+function deleteConfig(idx) {
+  if (!confirm('Delete this configuration?')) return;
+  const configs = getConfigs();
+  configs.splice(idx, 1);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(configs));
+  renderSavedList();
+}
+
+function renderSavedList() {
+  const configs = getConfigs();
+  const list = document.getElementById('savedList');
+
+  if (configs.length === 0) {
+    list.innerHTML = '<div class="no-saves">No saved configurations</div>';
+    return;
+  }
+
+  list.innerHTML = configs.map((c, i) => `
+    <li>
+      <div>
+        <div class="name" onclick="loadConfig(${i})">${c.name}</div>
+        <div class="date">${new Date(c.date).toLocaleDateString()} · ${c.layers.length} layers</div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="deleteConfig(${i})">✕</button>
+    </li>`).join('');
+}
+
+function openSaveModal() {
+  document.getElementById('saveModal').classList.add('open');
+  renderSavedList();
+}
+
+function closeSaveModal() {
+  document.getElementById('saveModal').classList.remove('open');
+}
+
+document.getElementById('saveModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSaveModal();
+});
+
+function updateLabelsForUnit() {
+  document.getElementById('lblHotFace').textContent = 'Hot Face Temperature (' + tempUnit() + ')';
+  document.getElementById('lblAmbient').textContent = 'Ambient Temperature (' + tempUnit() + ')';
+  document.getElementById('lblWind').textContent = 'Wind Speed (' + windUnit() + ')';
+  document.getElementById('lblCylDia').innerHTML = 'Cylinder OD (' + thickUnit() + ') <span class="text-muted">(if applicable)</span>';
+  document.getElementById('lblCylLen').innerHTML = 'Cylinder Length (' + thickUnit() + ') <span class="text-muted">(if applicable)</span>';
+  document.getElementById('thThickness').textContent = 'Thickness (' + thickUnit() + ')';
+}
+
+// ── Export/Print ───────────────────────────────────────────────
+function exportPDF() {
+  // Populate print date
+  const now = new Date();
+  document.getElementById('printDate').textContent = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) + ' ' + now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+  
+  // Build compact operating conditions for print
+  const hotF = document.getElementById('hotFaceTemp').value;
+  const ambF = document.getElementById('ambientTemp').value;
+  const wind = document.getElementById('windSpeed').value;
+  const emiss = document.getElementById('emissivity').value;
+  const constr = document.getElementById('construction');
+  const constrText = constr.options[constr.selectedIndex].text;
+  const cylDia = document.getElementById('cylDiameter').value;
+  const cylLen = document.getElementById('cylLength').value;
+  const isMetric = document.getElementById('unitToggle') && document.getElementById('unitToggle').checked;
+  const tempU = isMetric ? '°C' : '°F';
+  const speedU = isMetric ? 'km/h' : 'MPH';
+  
+  let condHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:9px;padding:4px 0;border-bottom:1px solid #ccc;margin-bottom:6px">`;
+  condHTML += `<span><b>Hot Face:</b> ${hotF}${tempU}</span>`;
+  condHTML += `<span><b>Ambient:</b> ${ambF}${tempU}</span>`;
+  condHTML += `<span><b>Wind:</b> ${wind} ${speedU}</span>`;
+  condHTML += `<span><b>Emissivity:</b> ${emiss}</span>`;
+  condHTML += `<span><b>Construction:</b> ${constrText}</span>`;
+  if (constr.value !== 'flat' && constr.value !== 'roof' && constr.value !== 'hearth') {
+    condHTML += `<span><b>Cyl OD:</b> ${cylDia}" <b>Length:</b> ${cylLen}"</span>`;
+  }
+  condHTML += `</div>`;
+  document.getElementById('printConditions').innerHTML = condHTML;
+  
+  window.print();
+}
+
+// ── Reset ──────────────────────────────────────────────────────
+function resetAll() {
+  if (!confirm('Reset all inputs?')) return;
+
+  // Reset to imperial
+  if (isMetric()) {
+    unitSystem = 'imperial';
+    document.getElementById('unitToggle').checked = false;
+    document.getElementById('unitLabelImp').classList.add('unit-active');
+    document.getElementById('unitLabelMet').classList.remove('unit-active');
+    updateLabelsForUnit();
+  }
+
+  document.getElementById('hotFaceTemp').value = 2000;
+  document.getElementById('ambientTemp').value = 80;
+  document.getElementById('windSpeed').value = 0;
+  document.getElementById('emissivity').value = 0.9;
+  document.getElementById('construction').value = 'flat';
+  document.getElementById('cylDiameter').value = 48;
+  document.getElementById('cylLength').value = 120;
+  document.getElementById('cylDiameter').disabled = true;
+  document.getElementById('cylLength').disabled = true;
+
+  layerIdCounter = 0;
+  layers = [];
+  lastResults = null;
+  renderLayers();
+  document.getElementById('resultsPanel').style.display = 'none';
+  document.getElementById('chartPanel').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MATERIALS EDITOR
+// ═══════════════════════════════════════════════════════════════
+
+function openMaterialsEditor() {
+  document.getElementById('matEditorOverlay').classList.add('open');
+  document.getElementById('meListView').style.display = '';
+  document.getElementById('meEditView').style.display = 'none';
+  document.getElementById('meSearch').value = '';
+  renderMEList();
+}
+
+function closeMaterialsEditor() {
+  document.getElementById('matEditorOverlay').classList.remove('open');
+  // Refresh main UI in case materials changed
+  mergeMaterials();
+  renderLayers();
+}
+
+// ── List View ──────────────────────────────────────────────────
+function renderMEList() {
+  const query = (document.getElementById('meSearch').value || '').toLowerCase();
+  let items = allMaterials.map((m, i) => ({ ...m, _idx: i }));
+
+  if (query) {
+    items = items.filter(m =>
+      m.name.toLowerCase().includes(query) ||
+      m.mfr.toLowerCase().includes(query) ||
+      (m.source || '').toLowerCase().includes(query)
+    );
+  }
+
+  // Sort
+  items.sort((a, b) => {
+    let va = a[meSortField], vb = b[meSortField];
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return -meSortDir;
+    if (va > vb) return meSortDir;
+    return 0;
+  });
+
+  document.getElementById('meCount').textContent = `${items.length} of ${allMaterials.length} materials`;
+
+  // Update sort arrows
+  ['name','mfr','source','maxTemp','density'].forEach(f => {
+    const el = document.getElementById('meSort-' + f);
+    if (el) el.textContent = meSortField === f ? (meSortDir === 1 ? '▲' : '▼') : '';
+  });
+
+  const tbody = document.getElementById('meTableBody');
+  // Count conductivity data points for each material (non-zero coefficients)
+  tbody.innerHTML = items.map(m => {
+    const kPoints = countKPoints(m);
+    const isCustom = m._custom;
+    return `<tr class="${isCustom ? 'custom-row' : ''}" onclick="editMaterial(${m._idx})">
+      <td>${m.name}${isCustom ? ' <span class="mat-custom-badge">CUSTOM</span>' : ''}</td>
+      <td>${m.mfr}</td>
+      <td>${m.source || '—'}</td>
+      <td>${m.maxTemp}°F</td>
+      <td>${m.density}</td>
+      <td>${kPoints}</td>
+      <td onclick="event.stopPropagation()">
+        ${isCustom ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteCustomMaterial('${escapeName(m.name)}')" title="Delete">✕</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function escapeName(n) { return n.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+function countKPoints(mat) {
+  // Count non-zero b coefficients as a proxy
+  if (!mat.b) return 0;
+  return mat.b.filter(v => v !== 0).length;
+}
+
+function meSortBy(field) {
+  if (meSortField === field) {
+    meSortDir *= -1;
+  } else {
+    meSortField = field;
+    meSortDir = 1;
+  }
+  renderMEList();
+}
+
+function deleteCustomMaterial(name) {
+  if (!confirm(`Delete custom material "${name}"?`)) return;
+  customMaterials = customMaterials.filter(m => m.name !== name);
+  saveCustomMaterials();
+  mergeMaterials();
+
+  // Fix layer references
+  layers.forEach(l => {
+    if (l.materialIdx >= allMaterials.length) l.materialIdx = 0;
+  });
+
+  renderMEList();
+}
+
+// ── Edit View ──────────────────────────────────────────────────
+function editMaterial(idx) {
+  document.getElementById('meListView').style.display = 'none';
+  document.getElementById('meEditView').style.display = '';
+
+  fitCoeffs = null;
+  document.getElementById('fitResults').style.display = 'none';
+
+  if (idx === null) {
+    // New material
+    meEditingIdx = -1;
+    meEditingCustomName = null;
+    document.getElementById('meEditTitle').textContent = '+ New Material';
+    document.getElementById('meName').value = '';
+    document.getElementById('meMfr').value = '';
+    document.getElementById('meSource').value = '';
+    document.getElementById('meMaxTemp').value = 2000;
+    document.getElementById('meDensity').value = 100;
+    for (let i = 0; i <= 6; i++) document.getElementById('meB' + i).value = 0;
+  } else {
+    const mat = allMaterials[idx];
+    meEditingIdx = idx;
+    meEditingCustomName = mat._custom ? mat.name : null;
+    document.getElementById('meEditTitle').textContent = 'Edit: ' + mat.name;
+    document.getElementById('meName').value = mat.name;
+    document.getElementById('meMfr').value = mat.mfr;
+    document.getElementById('meSource').value = mat.source || '';
+    document.getElementById('meMaxTemp').value = mat.maxTemp;
+    document.getElementById('meDensity').value = mat.density;
+    for (let i = 0; i <= 6; i++) {
+      document.getElementById('meB' + i).value = mat.b[i] || 0;
+    }
+  }
+
+  buildDPTable();
+  updateCoeffPreview();
+  switchMETab('datapoints');
+  updateKPreviewChart();
+}
+
+function cancelEditMaterial() {
+  document.getElementById('meEditView').style.display = 'none';
+  document.getElementById('meListView').style.display = '';
+  if (kPreviewChart) { kPreviewChart.destroy(); kPreviewChart = null; }
+}
+
+function saveMaterialEdit() {
+  const name = document.getElementById('meName').value.trim();
+  if (!name) return alert('Enter a material name');
+
+  const mat = {
+    name: name,
+    mfr: document.getElementById('meMfr').value.trim(),
+    source: document.getElementById('meSource').value.trim(),
+    maxTemp: parseFloat(document.getElementById('meMaxTemp').value) || 2000,
+    density: parseFloat(document.getElementById('meDensity').value) || 100,
+    b: []
+  };
+  for (let i = 0; i <= 6; i++) {
+    mat.b.push(parseFloat(document.getElementById('meB' + i).value) || 0);
+  }
+
+  // If editing an existing custom material with a different name, remove old
+  if (meEditingCustomName && meEditingCustomName !== name) {
+    customMaterials = customMaterials.filter(m => m.name !== meEditingCustomName);
+  }
+
+  // Upsert in customMaterials
+  const existIdx = customMaterials.findIndex(m => m.name === name);
+  if (existIdx >= 0) {
+    customMaterials[existIdx] = mat;
+  } else {
+    customMaterials.push(mat);
+  }
+
+  saveCustomMaterials();
+  mergeMaterials();
+
+  // Fix layer references by name
+  layers.forEach(l => {
+    const mRef = allMaterials[l.materialIdx];
+    if (!mRef) l.materialIdx = 0;
+  });
+
+  cancelEditMaterial();
+  renderMEList();
+}
+
+// ── Data Points Table ──────────────────────────────────────────
+const DP_TEMPS = [0, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600, 2800, 3000];
+
+function buildDPTable() {
+  const tbody = document.getElementById('dpTableBody');
+  // Try to reconstruct data points from current coefficients
+  const b = [];
+  for (let i = 0; i <= 6; i++) b.push(parseFloat(document.getElementById('meB' + i).value) || 0);
+
+  tbody.innerHTML = DP_TEMPS.map(T => {
+    // Calculate k from current coefficients as a hint
+    let kCalc = 0, Tn = 1;
+    for (let i = 0; i < 7; i++) { kCalc += b[i] * Tn; Tn *= T; }
+    const hint = kCalc > 0 ? kCalc.toFixed(4) : '';
+    return `<tr>
+      <td><input type="number" value="${T}" step="any" class="dp-t-input" style="background:var(--bg3)"></td>
+      <td><input type="number" step="any" id="dpK-${T}" placeholder="${hint}" class="dp-k-input"></td>
+    </tr>`;
+  }).join('');
+}
+
+function getDataPoints() {
+  const points = [];
+  const rows = document.querySelectorAll('#meTabDatapoints tr');
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input[type="number"]');
+    if (inputs.length >= 2) {
+      const T = parseFloat(inputs[0].value);
+      const k = parseFloat(inputs[1].value);
+      if (!isNaN(T) && !isNaN(k) && k > 0) points.push({ T, k });
+    }
+  });
+  return points;
+}
+
+// ── Polynomial Curve Fitting ───────────────────────────────────
+function setFitOrder(order) {
+  fitOrder = order;
+  document.querySelectorAll('.order-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i + 1 === order);
+  });
+  // Re-fit if we have data
+  const pts = getDataPoints();
+  if (pts.length >= 2) fitCurve();
+}
+
+function fitCurve() {
+  const pts = getDataPoints();
+  if (pts.length < 2) return alert('Enter at least 2 data points');
+  if (pts.length <= fitOrder) {
+    return alert(`Need more data points than polynomial order. You have ${pts.length} points for order ${fitOrder}.`);
+  }
+
+  const Ts = pts.map(p => p.T);
+  const Ks = pts.map(p => p.k);
+  const n = pts.length;
+  const order = fitOrder;
+
+  // Normalize T to [0, 1] for numerical stability
+  const Tmin = Math.min(...Ts);
+  const Tmax = Math.max(...Ts);
+  const Trange = Tmax - Tmin || 1;
+  const Tnorm = Ts.map(t => (t - Tmin) / Trange);
+
+  // Build Vandermonde matrix
+  const X = [];
+  for (let i = 0; i < n; i++) {
+    const row = [];
+    let tn = 1;
+    for (let j = 0; j <= order; j++) {
+      row.push(tn);
+      tn *= Tnorm[i];
+    }
+    X.push(row);
+  }
+
+  // X^T * X
+  const m = order + 1;
+  const XtX = Array.from({ length: m }, () => new Array(m).fill(0));
+  const XtY = new Array(m).fill(0);
+
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < m; j++) {
+      for (let k = 0; k < n; k++) {
+        XtX[i][j] += X[k][i] * X[k][j];
+      }
+    }
+    for (let k = 0; k < n; k++) {
+      XtY[i] += X[k][i] * Ks[k];
+    }
+  }
+
+  // Solve using Gaussian elimination with partial pivoting
+  const coeffsNorm = solveLinearSystem(XtX, XtY);
+  if (!coeffsNorm) return alert('Curve fitting failed — singular matrix. Try fewer data points or lower order.');
+
+  // Transform coefficients back from normalized T to actual T
+  // k(T) = sum(c_j * ((T - Tmin)/Trange)^j)
+  // Expand this to get coefficients in terms of T
+  const coeffsActual = transformCoeffs(coeffsNorm, Tmin, Trange, order);
+
+  // Calculate R²
+  let ssRes = 0, ssTot = 0;
+  const kMean = Ks.reduce((a, b) => a + b, 0) / n;
+  for (let i = 0; i < n; i++) {
+    let kPred = 0, tn = 1;
+    for (let j = 0; j <= order; j++) {
+      kPred += coeffsNorm[j] * Math.pow(Tnorm[i], j);
+      // Don't multiply tn here — use Tnorm directly
+    }
+    ssRes += (Ks[i] - kPred) ** 2;
+    ssTot += (Ks[i] - kMean) ** 2;
+  }
+  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 1;
+
+  fitCoeffs = new Array(7).fill(0);
+  for (let i = 0; i <= Math.min(order, 6); i++) {
+    fitCoeffs[i] = coeffsActual[i] || 0;
+  }
+
+  // Display results
+  const fitEl = document.getElementById('fitResults');
+  fitEl.style.display = '';
+  const r2El = document.getElementById('fitR2');
+  r2El.textContent = r2.toFixed(6);
+  r2El.className = 'r2 ' + (r2 > 0.999 ? 'good' : r2 > 0.99 ? 'ok' : 'bad');
+
+  document.getElementById('fitEquation').textContent = formatEquation(fitCoeffs);
+  updateKPreviewChart(pts);
+}
+
+function solveLinearSystem(A, b) {
+  const n = b.length;
+  // Augmented matrix
+  const M = A.map((row, i) => [...row, b[i]]);
+
+  for (let col = 0; col < n; col++) {
+    // Partial pivoting
+    let maxRow = col;
+    for (let row = col + 1; row < n; row++) {
+      if (Math.abs(M[row][col]) > Math.abs(M[maxRow][col])) maxRow = row;
+    }
+    [M[col], M[maxRow]] = [M[maxRow], M[col]];
+
+    if (Math.abs(M[col][col]) < 1e-15) return null;
+
+    // Eliminate below
+    for (let row = col + 1; row < n; row++) {
+      const factor = M[row][col] / M[col][col];
+      for (let j = col; j <= n; j++) {
+        M[row][j] -= factor * M[col][j];
+      }
+    }
+  }
+
+  // Back substitution
+  const x = new Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    x[i] = M[i][n];
+    for (let j = i + 1; j < n; j++) {
+      x[i] -= M[i][j] * x[j];
+    }
+    x[i] /= M[i][i];
+  }
+  return x;
+}
+
+function transformCoeffs(cNorm, Tmin, Trange, order) {
+  // k(T) = sum_{j=0}^{order} cNorm[j] * ((T - Tmin)/Trange)^j
+  // Let u = (T - Tmin)/Trange, so T = u*Trange + Tmin, u = T/Trange - Tmin/Trange
+  // We need to expand sum(cNorm[j] * u^j) where u = (T - Tmin)/Trange
+  // Using binomial expansion: u^j = ((T-Tmin)/Trange)^j = (1/Trange^j) * sum_{k=0}^{j} C(j,k) * T^k * (-Tmin)^{j-k}
+
+  const maxOrder = Math.min(order, 6);
+  const result = new Array(7).fill(0);
+
+  for (let j = 0; j <= maxOrder; j++) {
+    const c = cNorm[j];
+    // (T - Tmin)^j / Trange^j
+    // Expand (T - Tmin)^j using binomial theorem
+    const scale = Math.pow(Trange, -j);
+    for (let k = 0; k <= j; k++) {
+      const binom = binomialCoeff(j, k);
+      const sign = ((j - k) % 2 === 0) ? 1 : -1;
+      const contrib = c * scale * binom * sign * Math.pow(Tmin, j - k);
+      if (k <= 6) result[k] += contrib;
+    }
+  }
+
+  return result;
+}
+
+function binomialCoeff(n, k) {
+  if (k < 0 || k > n) return 0;
+  if (k === 0 || k === n) return 1;
+  let c = 1;
+  for (let i = 0; i < k; i++) {
+    c = c * (n - i) / (i + 1);
+  }
+  return c;
+}
+
+function applyFitCoeffs() {
+  if (!fitCoeffs) return;
+  for (let i = 0; i <= 6; i++) {
+    document.getElementById('meB' + i).value = fitCoeffs[i];
+  }
+  updateCoeffPreview();
+  updateKPreviewChart(getDataPoints());
+}
+
+function formatEquation(b) {
+  const superscripts = ['', '', '²', '³', '⁴', '⁵', '⁶'];
+  let parts = [];
+  for (let i = 0; i <= 6; i++) {
+    if (Math.abs(b[i]) < 1e-20) continue;
+    const val = b[i].toExponential(6);
+    if (i === 0) {
+      parts.push(val);
+    } else {
+      parts.push(`${b[i] >= 0 ? ' + ' : ' - '}${Math.abs(b[i]).toExponential(6)}·T${superscripts[i]}`);
+    }
+  }
+  return 'k(T) = ' + (parts.length ? parts.join('') : '0');
+}
+
+function updateCoeffPreview() {
+  const b = [];
+  for (let i = 0; i <= 6; i++) b.push(parseFloat(document.getElementById('meB' + i).value) || 0);
+  document.getElementById('coeffEquation').textContent = formatEquation(b);
+  updateKPreviewChart();
+}
+
+// ── Tabs ───────────────────────────────────────────────────────
+function switchMETab(tab) {
+  document.querySelectorAll('.me-tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'datapoints') || (i === 1 && tab === 'coefficients'));
+  });
+  document.getElementById('meTabDatapoints').classList.toggle('active', tab === 'datapoints');
+  document.getElementById('meTabCoefficients').classList.toggle('active', tab === 'coefficients');
+}
+
+// ── k Preview Chart ────────────────────────────────────────────
+function updateKPreviewChart(dataPoints) {
+  const maxTemp = parseFloat(document.getElementById('meMaxTemp').value) || 2000;
+  const b = [];
+  for (let i = 0; i <= 6; i++) b.push(parseFloat(document.getElementById('meB' + i).value) || 0);
+
+  const labels = [];
+  const kValues = [];
+  const step = Math.max(maxTemp / 50, 10);
+  for (let T = 0; T <= maxTemp; T += step) {
+    labels.push(T);
+    let k = 0, Tn = 1;
+    for (let i = 0; i < 7; i++) { k += b[i] * Tn; Tn *= T; }
+    kValues.push(Math.max(k, 0));
+  }
+
+  // Also show fit curve if fitCoeffs exist and differ from current
+  const datasets = [{
+    label: 'k(T) — Coefficients',
+    data: kValues,
+    borderColor: '#e86c2c',
+    backgroundColor: 'rgba(232,108,44,0.1)',
+    fill: true,
+    tension: 0.3,
+    pointRadius: 0,
+    borderWidth: 2,
+  }];
+
+  // Show data points if provided
+  if (dataPoints && dataPoints.length > 0) {
+    datasets.push({
+      label: 'Data Points',
+      data: dataPoints.map(p => ({ x: p.T, y: p.k })),
+      type: 'scatter',
+      borderColor: '#22c55e',
+      backgroundColor: '#22c55e',
+      pointRadius: 6,
+      pointHoverRadius: 8,
+      showLine: false,
+    });
+  }
+
+  // If fitCoeffs exist and we're showing fit, add fitted curve
+  if (fitCoeffs) {
+    const fitVals = [];
+    for (let T = 0; T <= maxTemp; T += step) {
+      let k = 0, Tn = 1;
+      for (let i = 0; i < 7; i++) { k += fitCoeffs[i] * Tn; Tn *= T; }
+      fitVals.push(Math.max(k, 0));
+    }
+    datasets.push({
+      label: 'Fitted Curve',
+      data: fitVals,
+      borderColor: '#3b82f6',
+      borderDash: [5, 5],
+      tension: 0.3,
+      pointRadius: 0,
+      borderWidth: 2,
+      fill: false,
+    });
+  }
+
+  const ctx = document.getElementById('kPreviewChart').getContext('2d');
+  if (kPreviewChart) kPreviewChart.destroy();
+
+  kPreviewChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#a0a8c0', font: { size: 11 } } },
+        tooltip: {
+          backgroundColor: 'rgba(24,27,36,0.95)',
+          titleColor: '#e0e4f0',
+          bodyColor: '#e0e4f0',
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Temperature (°F)', color: '#a0a8c0' },
+          ticks: { color: '#6b7394' },
+          grid: { color: 'rgba(46,51,70,0.5)' },
+          type: 'linear',
+          min: 0,
+          max: maxTemp,
+        },
+        y: {
+          title: { display: true, text: 'k (BTU·in/hr·ft²·°F)', color: '#a0a8c0' },
+          ticks: { color: '#6b7394' },
+          grid: { color: 'rgba(46,51,70,0.5)' },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
+// ── Import/Export Materials ─────────────────────────────────────
+function exportMaterials() {
+  const allExport = allMaterials.map(m => ({
+    name: m.name,
+    mfr: m.mfr,
+    source: m.source || '',
+    maxTemp: m.maxTemp,
+    density: m.density,
+    b: m.b,
+    _custom: !!m._custom
+  }));
+  const blob = new Blob([JSON.stringify(allExport, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'itc-heatflow-materials.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importMaterials(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error('Expected array');
+
+      let added = 0, updated = 0;
+      imported.forEach(m => {
+        if (!m.name || !m.b || !Array.isArray(m.b)) return;
+        // Ensure b has 7 elements
+        while (m.b.length < 7) m.b.push(0);
+
+        const existing = customMaterials.findIndex(c => c.name === m.name);
+        const matData = {
+          name: m.name,
+          mfr: m.mfr || '',
+          source: m.source || '',
+          maxTemp: m.maxTemp || 2000,
+          density: m.density || 100,
+          b: m.b.slice(0, 7)
+        };
+
+        if (existing >= 0) {
+          customMaterials[existing] = matData;
+          updated++;
+        } else {
+          customMaterials.push(matData);
+          added++;
+        }
+      });
+
+      saveCustomMaterials();
+      mergeMaterials();
+      renderMEList();
+      alert(`Import complete: ${added} added, ${updated} updated`);
+    } catch (err) {
+      alert('Import failed: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+</script>
+</body>
+</html>
