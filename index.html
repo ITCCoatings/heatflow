@@ -93,7 +93,10 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .mat-search-wrap{position:relative}
 .mat-search-input{width:100%;padding:8px 12px;padding-right:30px}
 .mat-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:0 0 var(--radius) var(--radius);max-height:250px;overflow-y:auto;z-index:200;display:none;box-shadow:0 8px 24px rgba(0,0,0,.4)}
-@media(max-width:900px){.mat-dropdown{position:fixed;top:auto;bottom:0;left:0;right:0;max-height:60vh;border-radius:var(--radius-lg) var(--radius-lg) 0 0;z-index:300}}
+@media(max-width:900px){.mat-dropdown{position:fixed;top:auto;bottom:0;left:0;right:0;max-height:60vh;border-radius:var(--radius-lg) var(--radius-lg) 0 0;z-index:300;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+body.dropdown-open{overflow:hidden;position:fixed;width:100%;touch-action:none}
+.mat-dropdown-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:299}
+body.dropdown-open .mat-dropdown-overlay{display:block}}
 .mat-dropdown.open{display:block}
 .mat-option{padding:8px 12px;cursor:pointer;font-size:.85rem;border-bottom:1px solid var(--border)}
 .mat-option:hover,.mat-option.highlighted{background:var(--bg4)}
@@ -878,6 +881,15 @@ function updateThickness(id, val) {
 let activeDropdown = null;
 let highlightedIdx = -1;
 
+// Add overlay element if not present
+if (!document.getElementById('matDropOverlay')) {
+  const ov = document.createElement('div');
+  ov.id = 'matDropOverlay';
+  ov.className = 'mat-dropdown-overlay';
+  ov.onclick = () => closeAllDropdowns();
+  document.body.appendChild(ov);
+}
+
 function openMatDropdown(input, layerId) {
   closeAllDropdowns();
   const dd = document.getElementById(`matDrop-${layerId}`);
@@ -886,6 +898,7 @@ function openMatDropdown(input, layerId) {
   input.select();
   showFilteredMaterials(dd, '', layerId);
   dd.classList.add('open');
+  document.body.classList.add('dropdown-open');
   input.addEventListener('keydown', handleMatKeydown);
   setTimeout(() => { dd.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 100);
 }
@@ -963,6 +976,7 @@ function selectMaterial(layerId, matIdx) {
 
 function closeAllDropdowns() {
   document.querySelectorAll('.mat-dropdown').forEach(d => d.classList.remove('open'));
+  document.body.classList.remove('dropdown-open');
   if (activeDropdown) {
     activeDropdown.input.removeEventListener('keydown', handleMatKeydown);
     activeDropdown = null;
