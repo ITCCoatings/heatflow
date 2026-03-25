@@ -924,7 +924,7 @@ function showFilteredMaterials(dd, query, layerId) {
     return `
     <div class="mat-option ${i === highlightedIdx ? 'highlighted' : ''}"
       onmousedown="selectMaterial(${layerId}, ${m.idx})"
-      ontouchend="event.preventDefault(); selectMaterial(${layerId}, ${m.idx})"
+      data-layer="${layerId}" data-mat="${m.idx}"
       data-idx="${i}">
       <div class="mat-name">${m.name}${badge}</div>
       <div class="mat-meta">
@@ -985,6 +985,36 @@ function closeAllDropdowns() {
 
 document.addEventListener('click', e => {
   if (!e.target.closest('.mat-search-wrap')) closeAllDropdowns();
+});
+
+// ── Mobile touch handling: distinguish scroll from tap ──────
+let _touchStartY = 0;
+let _touchMoved = false;
+
+document.addEventListener('touchstart', e => {
+  const opt = e.target.closest('.mat-option');
+  if (opt) {
+    _touchStartY = e.touches[0].clientY;
+    _touchMoved = false;
+  }
+}, { passive: true });
+
+document.addEventListener('touchmove', e => {
+  if (Math.abs(e.touches[0].clientY - _touchStartY) > 10) {
+    _touchMoved = true;
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  const opt = e.target.closest('.mat-option');
+  if (opt && !_touchMoved) {
+    e.preventDefault();
+    const layerId = parseInt(opt.dataset.layer);
+    const matIdx = parseInt(opt.dataset.mat);
+    if (!isNaN(layerId) && !isNaN(matIdx)) {
+      selectMaterial(layerId, matIdx);
+    }
+  }
 });
 
 // ── Heat Transfer Calculation ──────────────────────────────────
