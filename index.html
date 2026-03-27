@@ -1100,7 +1100,8 @@ function calculate() {
 
   const totalThick = thick.reduce((a, b) => a + b, 0);
 
-  lastResults = { T, q, R_layers, k_layers, R_surface, h_out, heatStorage, totalThick, mats, thick, T_amb };
+  const emissUsed = parseFloat(document.getElementById('emissivity').value);
+  lastResults = { T, q, R_layers, k_layers, R_surface, h_out, heatStorage, totalThick, mats, thick, T_amb, emiss: emissUsed };
   displayResults();
 }
 
@@ -1431,20 +1432,20 @@ function exportPDF() {
   const hotF = document.getElementById('hotFaceTemp').value;
   const ambF = document.getElementById('ambientTemp').value;
   const wind = document.getElementById('windSpeed').value;
-  const emiss = document.getElementById('emissivity').value;
+  const emiss = lastResults ? lastResults.emiss : parseFloat(document.getElementById('emissivity').value);
   const constr = document.getElementById('construction');
   const constrText = constr.options[constr.selectedIndex].text;
   const cylDia = document.getElementById('cylDiameter').value;
   const cylLen = document.getElementById('cylLength').value;
-  const isMetric = document.getElementById('unitToggle') && document.getElementById('unitToggle').checked;
-  const tempU = isMetric ? '°C' : '°F';
-  const speedU = isMetric ? 'km/h' : 'MPH';
+  const isMetricUnit = unitSystem === 'metric';
+  const tempU = isMetricUnit ? '°C' : '°F';
+  const speedU = isMetricUnit ? 'km/h' : 'MPH';
   
   let condHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:9px;padding:4px 0;border-bottom:1px solid #ccc;margin-bottom:6px">`;
   condHTML += `<span><b>Hot Face:</b> ${hotF}${tempU}</span>`;
   condHTML += `<span><b>Ambient:</b> ${ambF}${tempU}</span>`;
   condHTML += `<span><b>Wind:</b> ${wind} ${speedU}</span>`;
-  condHTML += `<span><b>Emissivity:</b> ${emiss}</span>`;
+  condHTML += `<span><b>Emissivity:</b> ${emiss.toFixed(2)}</span>`;
   condHTML += `<span><b>Construction:</b> ${constrText}</span>`;
   if (constr.value !== 'flat' && constr.value !== 'roof' && constr.value !== 'hearth') {
     condHTML += `<span><b>Cyl OD:</b> ${cylDia}" <b>Length:</b> ${cylLen}"</span>`;
