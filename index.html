@@ -1432,7 +1432,8 @@ function exportPDF() {
   const hotF = document.getElementById('hotFaceTemp').value;
   const ambF = document.getElementById('ambientTemp').value;
   const wind = document.getElementById('windSpeed').value;
-  const emiss = lastResults ? lastResults.emiss : parseFloat(document.getElementById('emissivity').value);
+  const emissRaw = lastResults ? lastResults.emiss : parseFloat(document.getElementById('emissivity').value);
+  const emiss = isNaN(emissRaw) ? parseFloat(document.getElementById('emissivity').value) : emissRaw;
   const constr = document.getElementById('construction');
   const constrText = constr.options[constr.selectedIndex].text;
   const cylDia = document.getElementById('cylDiameter').value;
@@ -1445,15 +1446,22 @@ function exportPDF() {
   condHTML += `<span><b>Hot Face:</b> ${hotF}${tempU}</span>`;
   condHTML += `<span><b>Ambient:</b> ${ambF}${tempU}</span>`;
   condHTML += `<span><b>Wind:</b> ${wind} ${speedU}</span>`;
-  condHTML += `<span><b>Emissivity:</b> ${emiss.toFixed(2)}</span>`;
+  condHTML += `<span><b>Emissivity:</b> ${typeof emiss === 'number' && !isNaN(emiss) ? emiss.toFixed(2) : emiss}</span>`;
   condHTML += `<span><b>Construction:</b> ${constrText}</span>`;
   if (constr.value !== 'flat' && constr.value !== 'roof' && constr.value !== 'hearth') {
     condHTML += `<span><b>Cyl OD:</b> ${cylDia}" <b>Length:</b> ${cylLen}"</span>`;
   }
   condHTML += `</div>`;
-  document.getElementById('printConditions').innerHTML = condHTML;
+
+  // Force the printConditions div visible (override inline style)
+  const pcDiv = document.getElementById('printConditions');
+  pcDiv.innerHTML = condHTML;
+  pcDiv.style.removeProperty('display');
   
   window.print();
+
+  // Restore hidden state after print dialog closes
+  setTimeout(() => { pcDiv.style.display = 'none'; }, 1000);
 }
 
 // ── Reset ──────────────────────────────────────────────────────
