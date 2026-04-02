@@ -827,7 +827,10 @@ function renderLayers() {
 
   tbody.innerHTML = layers.map((layer, idx) => {
     const mat = allMaterials[layer.materialIdx];
-    const overTemp = mat && inputs.T_hot > mat.maxTemp;
+    // Only show warning if we have calculated results and the actual interface temp at this layer exceeds maxTemp
+    // Before calculation, don't show temp warnings — the hot face temp is not necessarily what this layer sees
+    const layerHotSideTemp = lastResults && lastResults.T ? lastResults.T[idx] : null;
+    const overTemp = mat && layerHotSideTemp !== null && layerHotSideTemp > mat.maxTemp;
     const customBadge = mat && mat._custom ? '<span class="mat-custom-badge">CUSTOM</span>' : '';
     const dispThk = isMetric() ? round2(CONV.thickToMetric(layer.thickness)) : layer.thickness;
     const dUnit = densityUnit();
